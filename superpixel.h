@@ -1,14 +1,20 @@
 #ifndef _SUPERPIXEL_H_
 #define _SUPERPIXEL_H_
 
-// #include <atomic>
+#ifdef USE_STD_ATOMIC
+#include <atomic>
+#endif
 #include <cstdint>
 
 struct Pixel {
 	uint8_t r;
 	uint8_t g;
 	uint8_t b;
+#ifdef USE_STD_ATOMIC
+	std::atomic<uint16_t> label;
+#else
 	uint16_t label;
+#endif
 };
 
 // SuperPixel cluster center

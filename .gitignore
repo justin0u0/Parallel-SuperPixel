@@ -1,2 +1,4 @@
 superpixel
 superpixel_omp
+superpixel_omp_atomic
+superpixel_omp_std_atomic
