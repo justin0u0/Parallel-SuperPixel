@@ -1,6 +1,7 @@
-#ifndef _PNG_HELPER_H_
-#define _PNG_HELPER_H_
+#ifndef _SUPERPIXEL_PNG_H_
+#define _SUPERPIXEL_PNG_H_
 
+#include <stdlib.h>
 #include <png.h>
 
 #define PNG_SIG_SIZE 8
@@ -116,4 +117,4 @@ int write_png(const char* filename, unsigned char* image, unsigned int height, u
 	return 0;
 }
 
-#endif // _PNG_HELPER_H_
+#endif // _SUPERPIXEL_PNG_H_
