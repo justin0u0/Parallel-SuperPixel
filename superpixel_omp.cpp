@@ -93,8 +93,11 @@ int main(int argc, char** argv) {
 }
 
 void clustering(Pixel* pixels, int height, int width, int s, Center* centers, int num_centers) {
+	#pragma omp parallel for
 	for (int k = 0; k < num_centers; ++k) {
 		Center& c = centers[k];
+
+		#pragma omp parallel for collapse(2)
 		for (int i = c.x - s; i < c.x + s; ++i) {
 			for (int j = c.y - s; j < c.y + s; ++j) {
 				if (i < 0 || i >= height || j < 0 || j >= width) {
@@ -103,13 +106,19 @@ void clustering(Pixel* pixels, int height, int width, int s, Center* centers, in
 
 				int index = i * width + j;
 				Pixel& p = pixels[index];
-				Center& c2 = centers[p.label];
+
 				int d1 = (c.r - p.r) * (c.r - p.r) + (c.g - p.g) * (c.g - p.g) + (c.b - p.b) * (c.b - p.b)
 					+ (c.x - i) * (c.x - i) + (c.y - j) * (c.y - j);
-				int d2 = (c2.r - p.r) * (c2.r - p.r) + (c2.g - p.g) * (c2.g - p.g) + (c2.b - p.b) * (c2.b - p.b)
-					+ (c2.x - i) * (c2.x - i) + (c2.y - j) * (c2.y - j);
-				if (d1 < d2) {
-					p.label = k;
+
+				#pragma omp critical
+				{
+					Center c2 = centers[p.label];
+					int d2 = (c2.r - p.r) * (c2.r - p.r) + (c2.g - p.g) * (c2.g - p.g) + (c2.b - p.b) * (c2.b - p.b)
+						+ (c2.x - i) * (c2.x - i) + (c2.y - j) * (c2.y - j);
+
+					if (d1 < d2) {
+						p.label = k;
+					}
 				}
 			}
 		}
@@ -119,6 +128,7 @@ void clustering(Pixel* pixels, int height, int width, int s, Center* centers, in
 bool recentering(Pixel* pixels, int height, int width, int s, Center* centers, int num_centers) {
 	int errors = 0;
 
+	#pragma omp parallel for reduction(+:errors)
 	for (int k = 0; k < num_centers; ++k) {
 		Center& c = centers[k];
 		int r = 0;
@@ -127,6 +137,8 @@ bool recentering(Pixel* pixels, int height, int width, int s, Center* centers, i
 		int x = 0;
 		int y = 0;
 		int count = 0;
+
+		#pragma omp parallel for collapse(2) reduction(+:r, g, b, x, y, count)
 		for (int i = c.x - s; i < c.x + s; ++i) {
 			for (int j = c.y - s; j < c.y + s; ++j) {
 				if (i < 0 || i >= height || j < 0 || j >= width) {

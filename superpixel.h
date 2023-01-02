@@ -1,7 +1,8 @@
 #ifndef _SUPERPIXEL_H_
 #define _SUPERPIXEL_H_
 
-#include <stdint.h>
+// #include <atomic>
+#include <cstdint>
 
 struct Pixel {
 	uint8_t r;

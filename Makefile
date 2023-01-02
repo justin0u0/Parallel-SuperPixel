@@ -1,8 +1,8 @@
 CXX = g++
 LDFLAGS = -lpng
-TARGETS = superpixel
+TARGETS = superpixel superpixel_omp
 
-# superpixel_omp: CXXFLAGS += -fopenmp
+superpixel_omp: CXXFLAGS += -fopenmp -std=c++11
 # superpixel_omp2: CXXFLAGS += -fopenmp -std=c++11
 
 NVCC = nvcc
