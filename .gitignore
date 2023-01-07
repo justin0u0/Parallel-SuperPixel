@@ -3,3 +3,5 @@ superpixel_omp
 superpixel_omp_atomic
 superpixel_omp_std_atomic
 superpixel_cuda
+superpixel_cuda_v1
+superpixel_cuda_v2

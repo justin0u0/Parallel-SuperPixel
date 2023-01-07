@@ -100,7 +100,7 @@ int write_png(const char* filename, unsigned char* image, unsigned int height, u
 	png_set_IHDR(png_ptr, info_ptr, width, height, 8, PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
 	png_set_filter(png_ptr, 0, PNG_NO_FILTERS);
 	png_write_info(png_ptr, info_ptr);
-	png_set_compression_level(png_ptr, 1);
+	png_set_compression_level(png_ptr, 5);
 
 	png_bytep* image_ptr = (png_bytep*)malloc(height * sizeof(png_bytep));
 	size_t row_bytes = width * channels;

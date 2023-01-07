@@ -1,21 +1,26 @@
 CXX = g++
+CXXFLAGS = -std=c++11
 LDFLAGS = -lpng
-TARGETS = superpixel superpixel_omp superpixel_omp_atomic superpixel_omp_std_atomic superpixel_cuda
+DEPS = superpixel.h superpixel_png.h
+TARGETS = superpixel superpixel_omp superpixel_omp_atomic superpixel_omp_std_atomic
+CUDA_TARGETS = superpixel_cuda superpixel_cuda_v1 superpixel_cuda_v2
 
-superpixel_omp: CXXFLAGS += -fopenmp -std=c++11
-superpixel_omp_atomic: CXXFLAGS += -fopenmp -std=c++11
-superpixel_omp_std_atomic: CXXFLAGS += -fopenmp -std=c++11
-superpixel_cuda: CXXFLAGS += -std=c++11
+superpixel_omp: CXXFLAGS += -fopenmp
+superpixel_omp_atomic: CXXFLAGS += -fopenmp
+superpixel_omp_std_atomic: CXXFLAGS += -fopenmp
 
 NVCC = nvcc
 NVCCFLAGS = -O3 -std=c++11 -Xptxas=-v -arch=sm_61
 
 .PHONY: all
-all: $(TARGETS)
+all: $(TARGETS) $(CUDA_TARGETS)
 
 .PHONY: clean
 clean:
-	rm -f $(TARGETS)
+	rm -f $(TARGETS) $(CUDA_TARGETS)
 
-superpixel_cuda: superpixel_cuda.cu
+$(TARGETS): %: %.cpp $(DEPS)
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $<
+
+$(CUDA_TARGETS): %: %.cu $(DEPS)
 	$(NVCC) $(NVCCFLAGS) $(LDFLAGS) -o $@ $<
