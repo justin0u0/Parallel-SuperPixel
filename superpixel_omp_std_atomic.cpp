@@ -15,6 +15,8 @@ void clustering(Pixel* pixels, int height, int width, int s, Center* centers, in
 bool recentering(Pixel* pixels, int height, int width, int s, Center* centers, int num_centers);
 
 int main(int argc, char** argv) {
+	TimePoint start = std::chrono::steady_clock::now();
+
 	const char* infile = argv[1];
 	const char* outfile = argv[2];
 
@@ -64,7 +66,6 @@ int main(int argc, char** argv) {
 			c.r = pixels[index].r;
 			c.g = pixels[index].g;
 			c.b = pixels[index].b;
-			c.label = label;
 
 			++label;
 		}
@@ -93,6 +94,9 @@ int main(int argc, char** argv) {
 	free(pixels);
 	free(centers);
 	free(image);
+
+	int elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
+	std::cout << "elapsed time = " << elapsed << " ms" << std::endl;
 
 	return 0;
 }

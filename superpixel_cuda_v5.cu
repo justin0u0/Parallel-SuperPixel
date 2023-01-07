@@ -1,5 +1,5 @@
 /**
- * Coalesced memory access
+ * Pointer Alias: https://developer.nvidia.com/blog/cuda-pro-tip-optimize-pointer-aliasing/
 */
 #include <cassert>
 #include <cmath>
@@ -9,9 +9,9 @@
 
 #define RESIDUAL_ERROR_THRESHOLD 20
 
-__global__ void clustering(Pixel* pixels, int height, int width, int s, Center* centers) {
+__global__ void clustering(Pixel* __restrict__ pixels, int height, int width, int s, const Center* __restrict__ centers) {
 	int k = blockIdx.z;
-	Center& c = centers[k];
+	const Center& c = centers[k];
 
 	int i = threadIdx.x + blockIdx.x * blockDim.x + c.y - s;
 	int j = threadIdx.y + blockIdx.y * blockDim.y + c.x - s;
@@ -21,7 +21,7 @@ __global__ void clustering(Pixel* pixels, int height, int width, int s, Center* 
 
 	int index = j * width + i;
 	Pixel& p = pixels[index];
-	Center& c2 = centers[p.label];
+	const Center& c2 = centers[p.label];
 	int d1 = (c.r - p.r) * (c.r - p.r) + (c.g - p.g) * (c.g - p.g) + (c.b - p.b) * (c.b - p.b)
 		+ (c.x - j) * (c.x - j) + (c.y - i) * (c.y - i);
 	int d2 = (c2.r - p.r) * (c2.r - p.r) + (c2.g - p.g) * (c2.g - p.g) + (c2.b - p.b) * (c2.b - p.b)
@@ -31,30 +31,68 @@ __global__ void clustering(Pixel* pixels, int height, int width, int s, Center* 
 	}
 }
 
-__global__ void centering_phase1(Pixel* pixels, int height, int width, int s, Center* centers, int* all) {
-	int k = blockIdx.z;
-	Center& c = centers[k];
-	int* base = all + k * 6;
+__global__ void centering_phase1(const Pixel* __restrict__ pixels, int height, int width, int s, const Center* __restrict__ centers, int* all) {
+	int k = blockIdx.x;
+	const Center& c = centers[k];
 
-	int i = threadIdx.x + blockIdx.x * blockDim.x + c.y - s;
-	int j = threadIdx.y + blockIdx.y * blockDim.y + c.x - s;
-	if (i < 0 || i >= width || j < 0 || j >= height) {
-		return;
+	int r = 0;
+	int g = 0;
+	int b = 0;
+	int x = 0;
+	int y = 0;
+	int count = 0;
+
+	for (int i = threadIdx.x + c.y - s; i < min(c.y + s, width); i += blockDim.x) {
+		for (int j = threadIdx.y + c.x - s; j < min(c.x + s, height); j += blockDim.y) {
+			if (i < 0 || j < 0) {
+				continue;
+			}
+
+			int index = j * width + i;
+			const Pixel& p = pixels[index];
+			if (p.label == k) {
+				r += p.r;
+				g += p.g;
+				b += p.b;
+				x += j;
+				y += i;
+				++count;
+			}
+		}
 	}
 
-	int index = j * width + i;
-	Pixel& p = pixels[index];
-	if (p.label == k) {
-		atomicAdd_block(base, p.r);
-		atomicAdd_block(base + 1, p.g);
-		atomicAdd_block(base + 2, p.b);
-		atomicAdd_block(base + 3, j);
-		atomicAdd_block(base + 4, i);
-		atomicAdd_block(base + 5, 1);
+	__shared__ int sall[6];
+	if (threadIdx.x == 0) {
+		sall[0] = 0;
+		sall[1] = 0;
+		sall[2] = 0;
+		sall[3] = 0;
+		sall[4] = 0;
+		sall[5] = 0;
+	}
+	__syncthreads();
+
+	atomicAdd(sall, r);
+	atomicAdd(sall + 1, g);
+	atomicAdd(sall + 2, b);
+	atomicAdd(sall + 3, x);
+	atomicAdd(sall + 4, y);
+	atomicAdd(sall + 5, count);
+
+	__syncthreads();
+
+	if (threadIdx.x == 0) {
+		int* base = all + k * 6;
+		base[0] = sall[0];
+		base[1] = sall[1];
+		base[2] = sall[2];
+		base[3] = sall[3];
+		base[4] = sall[4];
+		base[5] = sall[5];
 	}
 }
 
-__global__ void centering_phase2(Center* centers, int* all, int* errors, int num_centers) {
+__global__ void centering_phase2(Center* __restrict__ centers, int* all, int* errors, int num_centers) {
 	int k = threadIdx.x + blockIdx.x * blockDim.x;
 	if (k >= num_centers) {
 		return;
@@ -164,7 +202,7 @@ int main(int argc, char** argv) {
 		cudaMemset(dall, 0, 6 * label * sizeof(int));
 		cudaMemset(derrors, 0, sizeof(int));
 
-		centering_phase1<<<num_blocks, threads_per_block>>>(dpixels, height, width, s, dcenters, dall);
+		centering_phase1<<<label, threads_per_block>>>(dpixels, height, width, s, dcenters, dall);
 		centering_phase2<<<(label - 1) / 1024 + 1, 1024>>>(dcenters, dall, derrors, label);
 
 		cudaMemcpy(&errors, derrors, sizeof(int), cudaMemcpyDeviceToHost);

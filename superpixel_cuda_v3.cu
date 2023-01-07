@@ -1,5 +1,5 @@
 /**
- * Coalesced memory access
+ * AtomicBlock -> AtomicThread
 */
 #include <cassert>
 #include <cmath>
@@ -32,25 +32,64 @@ __global__ void clustering(Pixel* pixels, int height, int width, int s, Center* 
 }
 
 __global__ void centering_phase1(Pixel* pixels, int height, int width, int s, Center* centers, int* all) {
-	int k = blockIdx.z;
+	int k = blockIdx.x;
 	Center& c = centers[k];
-	int* base = all + k * 6;
 
-	int i = threadIdx.x + blockIdx.x * blockDim.x + c.y - s;
-	int j = threadIdx.y + blockIdx.y * blockDim.y + c.x - s;
-	if (i < 0 || i >= width || j < 0 || j >= height) {
-		return;
+	__shared__ int r[1024];
+	__shared__ int g[1024];
+	__shared__ int b[1024];
+	__shared__ int x[1024];
+	__shared__ int y[1024];
+	__shared__ int count[1024];
+	r[threadIdx.x] = 0;
+	g[threadIdx.x] = 0;
+	b[threadIdx.x] = 0;
+	x[threadIdx.x] = 0;
+	y[threadIdx.x] = 0;
+	count[threadIdx.x] = 0;
+
+	for (int i = (threadIdx.x >> 5) + c.y - s; i < min(c.y + s, width); i += 32) {
+		for (int j = (threadIdx.x & 31) + c.x - s; j < min(c.x + s, height); j += 32) {
+			if (i < 0 || j < 0) {
+				continue;
+			}
+
+			int index = j * width + i;
+			Pixel& p = pixels[index];
+			if (p.label == k) {
+				r[threadIdx.x] += p.r;
+				g[threadIdx.x] += p.g;
+				b[threadIdx.x] += p.b;
+				x[threadIdx.x] += j;
+				y[threadIdx.x] += i;
+				count[threadIdx.x]++;
+			}
+		}
 	}
 
-	int index = j * width + i;
-	Pixel& p = pixels[index];
-	if (p.label == k) {
-		atomicAdd_block(base, p.r);
-		atomicAdd_block(base + 1, p.g);
-		atomicAdd_block(base + 2, p.b);
-		atomicAdd_block(base + 3, j);
-		atomicAdd_block(base + 4, i);
-		atomicAdd_block(base + 5, 1);
+	__syncthreads();
+
+	// reduce
+	for (int size = 512; size > 0; size >>= 1) {
+		if (threadIdx.x < size) {
+			r[threadIdx.x] += r[threadIdx.x + size];
+			g[threadIdx.x] += g[threadIdx.x + size];
+			b[threadIdx.x] += b[threadIdx.x + size];
+			x[threadIdx.x] += x[threadIdx.x + size];
+			y[threadIdx.x] += y[threadIdx.x + size];
+			count[threadIdx.x] += count[threadIdx.x + size];
+		}
+		__syncthreads();
+	}
+
+	int* base = all + k * 6;
+	if (threadIdx.x == 0) {
+		base[0] = r[0];
+		base[1] = g[0];
+		base[2] = b[0];
+		base[3] = x[0];
+		base[4] = y[0];
+		base[5] = count[0];
 	}
 }
 
@@ -164,7 +203,7 @@ int main(int argc, char** argv) {
 		cudaMemset(dall, 0, 6 * label * sizeof(int));
 		cudaMemset(derrors, 0, sizeof(int));
 
-		centering_phase1<<<num_blocks, threads_per_block>>>(dpixels, height, width, s, dcenters, dall);
+		centering_phase1<<<label, 1024>>>(dpixels, height, width, s, dcenters, dall);
 		centering_phase2<<<(label - 1) / 1024 + 1, 1024>>>(dcenters, dall, derrors, label);
 
 		cudaMemcpy(&errors, derrors, sizeof(int), cudaMemcpyDeviceToHost);

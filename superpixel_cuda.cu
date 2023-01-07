@@ -126,7 +126,6 @@ int main(int argc, char** argv) {
 			c.r = pixels[index].r;
 			c.g = pixels[index].g;
 			c.b = pixels[index].b;
-			c.label = label;
 
 			++label;
 		}

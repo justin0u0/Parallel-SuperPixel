@@ -19,12 +19,16 @@ struct Pixel {
 
 // SuperPixel cluster center
 struct Center {
-	uint16_t x;
-	uint16_t y;
-	uint8_t r;
-	uint8_t g;
-	uint8_t b;
-	uint16_t label;
+	uint16_t x; // 2 bytes
+	uint16_t y; // 2 bytes
+	uint8_t r;  // 1 byte
+	uint8_t g;  // 1 byte
+	uint8_t b;  // 1 byte
+	uint8_t _;  // 1 byte
 };
+
+#include <chrono>
+
+typedef std::chrono::steady_clock::time_point TimePoint;
 
 #endif // _SUPERPIXEL_H_
