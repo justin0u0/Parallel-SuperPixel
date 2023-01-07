@@ -77,6 +77,8 @@ __global__ void centering_phase2(Center* centers, int* all, int* errors, int num
 }
 
 int main(int argc, char** argv) {
+	TimePoint start = std::chrono::steady_clock::now();
+
 	const char* infile = argv[1];
 	const char* outfile = argv[2];
 
@@ -130,8 +132,8 @@ int main(int argc, char** argv) {
 			++label;
 		}
 	}
-	std::cout << "label = " << label << std::endl;
-	std::cout << "nsx * nsy = " << nsx * nsy << std::endl;
+	// std::cout << "label = " << label << std::endl;
+	// std::cout << "nsx * nsy = " << nsx * nsy << std::endl;
 	assert(label == nsx * nsy);
 
 	Pixel* dpixels;
@@ -186,6 +188,9 @@ int main(int argc, char** argv) {
 	free(pixels);
 	free(centers);
 	free(image);
+
+	int elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
+	std::cout << "elapsed time = " << elapsed << " ms" << std::endl;
 
 	return 0;
 }
